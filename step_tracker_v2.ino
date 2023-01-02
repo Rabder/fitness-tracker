@@ -4,7 +4,8 @@
 #include <SoftwareSerial.h>
 
 Adafruit_MPU6050 mpu;
-SoftwareSerial BT(10,11); 
+SoftwareSerial BT(10,11);
+#define BUTTON_PIN 5 
 
 int counter = 0;
 float interval[2] = {1, 1};
@@ -12,9 +13,11 @@ bool positive = false;
 bool negative = false;
 int steps = 0;
 int calories = 0;
+bool kill = false;
 
 void setup(void) {
   Serial.begin(9600);
+  pinMode(BUTTON_PIN, INPUT_PULLUP);
   BT.begin(9600);
   BT.println("TIME,STEPS,CALORIES");
   while (!Serial)
@@ -92,49 +95,65 @@ void setup(void) {
 
   Serial.println("");
   delay(100);
+  BT.println("Press the button to begin.");
 }
 
 void loop() {
-
-  if (counter < 2){
-    sensors_event_t a, g, temp;
-  mpu.getEvent(&a, &g, &temp);
-
-  /* Print out the values */
-  Serial.print("Acceleration x: ");
-    Serial.println(a.acceleration.x);
-    Serial.println("");
-    Serial.print("Acceleration x 0 : ");
-    Serial.println(a.acceleration.x);
-    Serial.println("");
-    Serial.print("Steps: ");
-    Serial.println(steps);
-    //BT.print("Acceleration x: ");
-    //BT.println(a.acceleration.x);
-    //BT.println("");
-    interval[counter] *= (a.acceleration.x);
-    counter++;
-  }
-  else{
-
-      Serial.print("Interval [0] ");
-      Serial.println(interval[0]);
-      Serial.print("Interval [1] ");
-      Serial.println(interval[1]);
-     if (abs(interval[0]-interval[1]) > 0.3){
-        steps++;
+  byte buttonState = digitalRead(BUTTON_PIN);
+  if (buttonState !=  1){
+    delay(500);
+    while (!kill){
+      
+      byte buttonState_in = digitalRead(BUTTON_PIN);
+      if (buttonState_in != 1){
+        kill = true;
+        BT.println("");
+        BT.println("KILLED");
+        BT.println("");
+        break;
+        }
+        if (counter < 2){
+        sensors_event_t a, g, temp;
+      mpu.getEvent(&a, &g, &temp);
+    
+      /* Print out the values */
+      Serial.print("Acceleration x: ");
+        Serial.println(a.acceleration.x);
+        Serial.println("");
+        Serial.print("Acceleration x 0 : ");
+        Serial.println(a.acceleration.x);
+        Serial.println("");
+        Serial.print("Steps: ");
+        Serial.println(steps);
+        //BT.print("Acceleration x: ");
+        //BT.println(a.acceleration.x);
+        //BT.println("");
+        interval[counter] *= (a.acceleration.x);
+        counter++;
       }
-
-      counter = 0;
-      for (int j=0;j<2;j++){
-        interval[j] = 1;
+      else{
+    
+          Serial.print("Interval [0] ");
+          Serial.println(interval[0]);
+          Serial.print("Interval [1] ");
+          Serial.println(interval[1]);
+         if (abs(interval[0]-interval[1]) > 0.3){
+            steps++;
+          }
+    
+          counter = 0;
+          for (int j=0;j<2;j++){
+            interval[j] = 1;
+          }
       }
+      calories = 0.05 * steps;
+      BT.print(",");
+      BT.print(steps);
+      BT.print(",");
+      BT.print(calories);
+      BT.println("");
+      delay(250);
+    }
   }
-  calories = 0.05 * steps;
-  BT.print(",");
-  BT.print(steps);
-  BT.print(",");
-  BT.print(calories);
-  BT.println("");
-  delay(500);
+  
 }
